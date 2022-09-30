@@ -1,0 +1,4 @@
+spleeter
+opencv-contrib-python
+python-vlc
+pyserial
