@@ -1,28 +1,27 @@
-import subprocess, os, librosa, dir, shlex
+import subprocess, os, librosa, dir, shlex, pickle
 from multiprocessing import Process
 from multiprocessing import sharedctypes
 import numpy as np
+from config import save_file_array_count
+from tempogram import TempogramImg
 
 
-def instrument_decomposition_subprocess(audio_path, mp_array, second_per_frame):
+def instrument_decomposition_subprocess(audio_path, mp_array, second_per_frame, fps_offset):
     y, sr = librosa.load(audio_path)
     o_env = librosa.onset.onset_strength(y=y, sr=sr)
-    onset_bt = librosa.onset.onset_detect(onset_envelope=o_env, backtrack=True)
     onset = librosa.onset.onset_detect(onset_envelope=o_env, backtrack=False)
-    diffs = onset - onset_bt
-    higher_than_zero = np.argwhere(diffs > 0).flatten()
-    onset_bt_secs, onset_secs = librosa.frames_to_time(onset_bt[higher_than_zero]), librosa.frames_to_time(onset[higher_than_zero])
-    onset_bt_frames, onset_frames = (onset_bt_secs / second_per_frame).astype(np.uint16), (onset_secs / second_per_frame).astype(np.uint16)
-    valid_hits = np.argwhere((onset_frames - onset_bt_frames) > 0).flatten()
-    all_hits = np.hstack((onset_bt_frames[valid_hits], onset_frames[valid_hits]))
+    onset_secs = librosa.frames_to_time(onset)
+    onset_frames = (onset_secs / second_per_frame).astype(np.uint16)
+    valid_hits = np.argwhere(np.diff(onset_frames) > 3).flatten()
+    all_hits = np.hstack((onset_frames[valid_hits], onset_frames[valid_hits] + 3)) + fps_offset
     all_hits_length = all_hits.shape[0]
     mp_array._obj[0:all_hits_length] = all_hits[0:]
     mp_array._obj[-1] = all_hits_length
 
 
-def return_instrument_song_data(audio_folder_paths, tempogram_fps):
-    instrument_path_ends = ('bass.wav', 'drums.wav', 'other.wav', 'vocals.wav')
-    tempogram_final_data = []
+def save_instrument_song_data(audio_folder_paths, tempogram_fps, fps_offset):
+    instrument_path_ends = ('bass.wav', 'drums.wav', 'vocals.wav', 'other.wav')
+    tempogram_final_data, tempogram_data_count, tempogram_str_count = [], 1, 1
     second_per_frame = 1 / tempogram_fps
     max_instrument_data_points = 4000
     shared_instrument_data_mp = [sharedctypes.Array('H', max_instrument_data_points) for _ in range(0, 4)]
@@ -34,7 +33,7 @@ def return_instrument_song_data(audio_folder_paths, tempogram_fps):
         processes, tempogram_data_pre_sort = [], []
         instrument_paths = [f'{audio_folder_path}/{instrument_path}' for instrument_path in instrument_path_ends]
         for audio_i, instrument_path in enumerate(instrument_paths):
-            processes.append(Process(target=instrument_decomposition_subprocess, args=(instrument_path, shared_instrument_data_mp[audio_i], second_per_frame)))
+            processes.append(Process(target=instrument_decomposition_subprocess, args=(instrument_path, shared_instrument_data_mp[audio_i], second_per_frame, fps_offset)))
         for process in processes:
             process.start()
         for process in processes:
@@ -48,7 +47,16 @@ def return_instrument_song_data(audio_folder_paths, tempogram_fps):
         tempogram_final_data.append(tempogram_data_pre_sort[lex_sort])
         print(f'Finished analyzing song {i + 1} of {song_lengths}')
 
-    return tempogram_final_data
+        if tempogram_data_count == save_file_array_count or tempogram_data_count ==1 song_lengths:
+            data_dir = f'{dir.audio_data_directory}/data_{tempogram_str_count}.pkl'
+            with open(data_dir, 'wb') as save_file:
+                pickle.dump(tempogram_final_data, save_file, pickle.HIGHEST_PROTOCOL)
+
+            tempogram_final_data.clear()
+            tempogram_data_count = 1
+            tempogram_str_count += 1
+        else:
+            tempogram_data_count += 1
 
 
 
@@ -66,15 +74,14 @@ def spleeter_decompose(audio_file_paths):
 
 
 def main():
-    tempogram_fps = 24
+    tempogram = TempogramImg((720, 1080), np. tile(np.array([255, 0, 0], dtype=np.uint8), (4, 1)))
     audio_file_paths = os.listdir(dir.audio_files)
-    # spleeter_decompose([f'{dir.audio_files}/{audio_path}' for audio_path in audio_folder_paths])
-    instrument_data = return_instrument_song_data([f'{dir.temp_audio_directory}/{audio_file_path[0:-4]}' for audio_file_path in audio_file_paths], tempogram_fps)
+    spleeter_decompose([f'{dir.audio_files}/{audio_path}' for audio_path in audio_file_paths])
+    save_instrument_song_data([f'{dir.temp_audio_directory}/{audio_file_path[0:-4]}' for audio_file_path in audio_file_paths], tempogram.fps, tempogram.tempogram_halfway_idx)
 
-    print('b')
-
-    pass
 
 
 if __name__ == '__main__':
     main()
+
+
