@@ -11,12 +11,16 @@ class TempogramImg:
     font_face = cv2.FONT_HERSHEY_COMPLEX_SMALL
     font_scale_thickness = .75, 1
     text_color = (255, 255, 255)
+    size_yx = (720, 1080)
+    tempogram_led_current_colors = np.array([[255, 0, 0],
+                                 [255, 255, 0],
+                                 [255, 0, 255],
+                                 [0, 0, 255]], dtype=np.uint8)
 
-    def __init__(self, size_yx, tempogram_colors):
-        self.frame = np.zeros((size_yx[0], size_yx[1], 3), dtype=np.uint8)
-        self.tempogram_led_current_colors = tempogram_colors
+    def __init__(self):
+        self.frame = np.zeros((self.size_yx[0], self.size_yx[1], 3), dtype=np.uint8)
 
-        self.tempogram_y_axis_text_padding, self.element_padding = int(.025 * size_yx[0]), int(.015 * size_yx[0])
+        self.tempogram_y_axis_text_padding, self.element_padding = int(.025 * self.size_yx[0]), int(.015 * self.size_yx[0])
         self.tempogram_icon_templates, self.tempogram_template_non_zero_indicies, self.tempogram_template_non_zero_points, self.tempogram_icon_bbox, self.tempogram_y_str_stop = self.return_tempogram_icons()
         self.tempogram_lines_x_start_stop, self.tempogram_lines_y_start_stop, self.x_graph_labels_start_y = self.return_tempogram_line_idxs(('-2.00', '0.00', '+2.00'))
         self.tempogram_hit_width, self.tempogram_halfway_idx, self.tempogram_adjusted_time = self.return_tempogram_hit_width(1.5)
@@ -158,11 +162,6 @@ class TempogramImg:
             self.draw_future_hits(instrument_data, frame)
         self.animate_step()
 
-    def animate_step(self):
-        self.frame[self.tempogram_icon_bbox[0, 0]: self.tempogram_icon_bbox[3, 1], self.tempogram_lines_x_start_stop[0]:self.tempogram_lines_x_start_stop[1] - self.tempogram_hit_width] = \
-            self.frame[self.tempogram_icon_bbox[0, 0]: self.tempogram_icon_bbox[3, 1], self.tempogram_lines_x_start_stop[0] + self.tempogram_hit_width:self.tempogram_lines_x_start_stop[1]].copy()
-
-
     def draw_current_hits(self, instrument_data, frame):
         end_i = 0
 
@@ -181,7 +180,8 @@ class TempogramImg:
             self.leds_are_on[0][draw_idxs] = np.invert(self.leds_are_on[0][draw_idxs])
             self.tempogram_current_hit_idx += end_i
 
-
+            self.led_shared_memory_view[draw_idxs] = 1
+            self.led_shared_memory_view[-1] = 1
 
     def draw_future_hits(self, instrument_data, frame):
         end_i = 0
@@ -207,6 +207,11 @@ class TempogramImg:
                     self.tempogram_lines_x_start_stop[1] - self.tempogram_hit_width: self.tempogram_lines_x_start_stop[1]] = self.tempogram_led_current_colors[draw_i]
             self.leds_are_on[1][draw_idxs] = np.invert(self.leds_are_on[1][draw_idxs])
             self.tempogram_future_hit_idx += end_i
+
+    def animate_step(self):
+        self.frame[self.tempogram_icon_bbox[0, 0]: self.tempogram_icon_bbox[3, 1], self.tempogram_lines_x_start_stop[0]:self.tempogram_lines_x_start_stop[1] - self.tempogram_hit_width] = \
+            self.frame[self.tempogram_icon_bbox[0, 0]: self.tempogram_icon_bbox[3, 1], self.tempogram_lines_x_start_stop[0] + self.tempogram_hit_width:self.tempogram_lines_x_start_stop[1]].copy()
+
 
 
 

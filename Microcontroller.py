@@ -2,6 +2,8 @@ import struct
 import time, serial, serial.tools.list_ports, serial.tools.list_ports_common, sys
 from struct import unpack
 import numpy as np
+import multiprocessing as mp
+from threading import Thread
 from config import microcontroller_settings
 from contextlib import suppress
 
@@ -23,12 +25,13 @@ class Microcontroller:
         'end_led_transmission': b'\x07'
     }
 
-
     def __init__(self, com_port):
         self.lc_offset = 0
         self.com_port = com_port
         self.mc = serial.Serial(self.com_port, Microcontroller.baud_rate, timeout=Microcontroller.time_out)
         time.sleep(2)
+
+        self.instrument_idxs = None
 
         # self.top_offset, self.bottom_offset = return_calibration_offsets()
 
@@ -49,7 +52,6 @@ class Microcontroller:
         with suppress(struct.error):
             mc_id = unpack('b', self.mc.read(1))[0]
 
-
         return mc_id
 
     def set_led_count(self, count):
@@ -63,7 +65,7 @@ class Microcontroller:
     def setup_complete(self):
         self.send_instructions([self.setup_complete.__name__])
 
-    def send_instructions(self, instruction_byte, arg_bytes= None):
+    def send_instructions(self, instruction_byte, arg_bytes=None):
         self.mc.write(instruction_byte)
         if arg_bytes is not None:
             self.mc.write(arg_bytes)
@@ -77,16 +79,7 @@ class Microcontroller:
             self.send_instructions(self.byte_commands['set_color_style'], color_style.tobytes())
             self.send_instructions(self.byte_commands['set_instrument_count'], np.array([instrument_idxs.shape[0]], dtype=np.uint8).tobytes())
 
-
-
-
-
-
-
-
-
-
-
+        self.instrument_idxs = mc_settings['instrument_idxs']
 
 
 def microcontroller_config_is_properly_setup() -> None or str:
@@ -123,6 +116,7 @@ def return_microcontroller_class_instance(ports: list, occupied_ports: list, mic
 
     return f'The id returned by the microcontrollers did not match the id in the config.py.\n Ensure the arduino script id matches the mc dictionary id'
 
+
 def return_microcontrollers() -> [Microcontroller, ...]:
     ports = serial.tools.list_ports.comports()
     microcontrollers, currently_used_ports = [], []
@@ -144,10 +138,46 @@ def return_microcontrollers() -> [Microcontroller, ...]:
 
     return microcontrollers
 
-def mc_child_process():
-    pass
+
+def return_microcontroller_dict(microcontrollers) -> {Microcontroller, ...}:
+    mc_dict = [{'mcs': [], 'bytes': []} for _ in range(4)]
+    bytes = [b'\x00', b'\x01', b'\x02', b'\x03']
+
+    for instrument_i in range(0, 4):
+        mc: Microcontroller
+        for mc in microcontrollers:
+            if instrument_i in mc.instrument_idxs:
+                mc_dict[instrument_i]['mcs'].append(mc)
+                mc_dict[instrument_i]['bytes'] = bytes[np.argwhere(mc.instrument_idxs == instrument_i).flatten()[0]]
+    return mc_dict
+
+def write_led_trigger_thread(mc_dict):
+    mc:Microcontroller
+    for mc, byte in zip(mc_dict['mcs'], mc_dict['bytes']):
+        mc.send_instructions(mc.byte_commands['trigger_led'], byte)
 
 
-if __name__ == '__main__':
-    t = return_microcontrollers()
-    print('b')
+
+
+def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, main_process_is_running : mp.Value):
+    mcs = return_microcontrollers()
+    mc_dict = return_microcontroller_dict(mcs)
+
+    led_trigger_view = np.ndarray(5, buffer=mp_child_is_ready._obj, dtype=np.uint8)
+    mp_child_is_ready.value = 1
+    while main_process_is_running.value:
+        if led_trigger_view[-1] == 1:
+            threads = []
+            led_triggers = np.argwhere(led_trigger_view[0:-1] == 1)
+            for trigger_i in led_triggers:
+                thread = Thread(target=write_led_trigger_thread, args=(mc_dict[trigger_i]))
+                thread.start()
+                threads.append(thread)
+
+            for thread in threads:
+                thread.join()
+
+        led_trigger_view[-1] = 0
+
+
+
