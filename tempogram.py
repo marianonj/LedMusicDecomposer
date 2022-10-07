@@ -172,9 +172,13 @@ class TempogramImg:
             pass
 
         if end_i != 0:
+            # MC subprocess will set the last idx back to 0 to indicate that the data has been transferred to the MCS
+            while self.led_shared_memory_view[-1] != 0:
+                pass
+
             draw_idxs = instrument_data[self.tempogram_current_hit_idx:self.tempogram_current_hit_idx + end_i][:, 1]
             leds_are_on_idxs = self.leds_are_on[0][draw_idxs].astype(np.uint0)
-            # MC subprocess will set the last idx back to 0 to indicate that the data has been transferred to the MCS
+
             for draw_i, led_on_i in zip(draw_idxs, leds_are_on_idxs):
                 self.frame[self.tempogram_icon_bbox[draw_i, 0]: self.tempogram_icon_bbox[draw_i, 1], self.tempogram_icon_bbox[draw_i, 2]: self.tempogram_icon_bbox[draw_i, 3]] = self.tempogram_icon_templates[draw_i, led_on_i]
             self.leds_are_on[0][draw_idxs] = np.invert(self.leds_are_on[0][draw_idxs])

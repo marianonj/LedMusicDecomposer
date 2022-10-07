@@ -50,12 +50,7 @@ def end_program(main_process_running_mp, child_process):
     main_process_running_mp.value = 0
     child_process.join()
 
-
-def main():
-    tempogram = TempogramImg()
-    led_child_ready_mp, main_process_running_mp = mp.Value('B', 0), mp.Value('B', 1)
-    child_process = start_and_return_led_child(tempogram.led_shared_memory, led_child_ready_mp, main_process_running_mp)
-
+def main_loop(tempogram):
     media_player = vlc.MediaPlayer()
     song_dirs = tuple([f'{dir.audio_files}/{audio_file_path}' for audio_file_path in os.listdir(dir.audio_files) if audio_file_path != '.gitkeep'])
     song_i, song_count, directory_count, time_per_frame = 0, 0, 1, 1 / tempogram.fps
@@ -77,7 +72,6 @@ def main():
 
             if song_frame == tempogram.tempogram_frame_play_music:
                 media_player.play()
-                print(f'time elapsed is {time.perf_counter() - st}')
 
             song_frame += 1
             cv2.imshow('frame', tempogram.frame)
@@ -88,6 +82,16 @@ def main():
 
         song_i, song_count, song_frame = song_i + 1, song_count + 1, 0
         tempogram.tempogram_current_hit_idx, tempogram.tempogram_future_hit_idx = 0, 0
+
+
+def main():
+    tempogram = TempogramImg()
+    led_child_ready_mp, main_process_running_mp = mp.Value('B', 0), mp.Value('B', 1)
+    child_process = start_and_return_led_child(tempogram.led_shared_memory, led_child_ready_mp, main_process_running_mp)
+
+    #If the microcontroller setup fails, it will print an error message and set the main_process_running to 0, exiting the program
+    if main_process_running_mp.value != 0:
+        main_loop(tempogram)
 
     end_program(main_process_running_mp, child_process)
 

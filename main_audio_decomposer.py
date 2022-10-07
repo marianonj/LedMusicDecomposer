@@ -90,13 +90,7 @@ def main():
     remove_temp_files(temp_audio_paths)
 
 
-
-
-
-
-
 if __name__ == '__main__':
-    setup()
     main()
 
 

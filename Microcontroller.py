@@ -22,7 +22,7 @@ class Microcontroller:
         'set_instrument_count': b'\x04',
         'set_led_colors': b'\x05',
         'setup_complete': b'\x06',
-        'end_led_transmission': b'\x07'
+        'end_transmission': b'\x07'
     }
 
     def __init__(self, com_port):
@@ -30,56 +30,51 @@ class Microcontroller:
         self.com_port = com_port
         self.mc = serial.Serial(self.com_port, Microcontroller.baud_rate, timeout=Microcontroller.time_out)
         time.sleep(2)
-
         self.instrument_idxs = None
-
         # self.top_offset, self.bottom_offset = return_calibration_offsets()
 
-    def __enter__(self):
-        print('b')
-        return self.mc
+    def trigger_led(self, trigger_idxs):
+        instrument_relative_idxs = np.argwhere(np.isin(self.instrument_idxs, trigger_idxs, assume_unique=True)).astype(np.uint8).flatten()
 
-    def __exit__(self):
-        self.mc.close()
-
-    def trigger_led(self, instrument_ids):
-        self.send_instructions(self.byte_commands[self.trigger_led.__name__], instrument_ids.astype(np.uint8).tobytes())
-        self.send_instructions(self.byte_commands['end_led_transmission'])
+        if instrument_relative_idxs.shape[0] != 0:
+            self.send_instructions(self.trigger_led.__name__, instrument_relative_idxs.tobytes(), wait=False)
+            self.send_instructions('end_transmission', wait=False)
 
     def query_id(self) -> int:
         mc_id = None
-        self.send_instructions(self.byte_commands['query_id'])
+        self.send_instructions('query_id')
         with suppress(struct.error):
             mc_id = unpack('b', self.mc.read(1))[0]
 
         return mc_id
 
-    def set_led_count(self, count):
-        self.send_instructions(bytearray(self.byte_commands[self.set_led_count.__name__] + count.to_bytes(count, 1, self.byte_order)))
-        pass
-
-    def set_led_light_type(self, type_i):
-        self.send_instructions(bytearray(self.byte_commands[self.set_led_light_type.__name__] + type_i.to_bytes(type_i, 1, self.byte_order)))
-        pass
-
-    def setup_complete(self):
-        self.send_instructions([self.setup_complete.__name__])
-
-    def send_instructions(self, instruction_byte, arg_bytes=None):
-        self.mc.write(instruction_byte)
+    def send_instructions(self, instruction_cmd, arg_bytes=None, wait=True):
+        self.mc.write(self.byte_commands[instruction_cmd])
         if arg_bytes is not None:
             self.mc.write(arg_bytes)
-        time.sleep(self.byte_instruction_wait)
+        if wait:
+            time.sleep(self.byte_instruction_wait)
 
     def setup(self, mc_settings):
-        for instrument_i, color in enumerate(mc_settings['led_colors']):
-            self.send_instructions(self.byte_commands['set_led_colors'], np.hstack((instrument_i, color)))
-
-        for color_style, instrument_idxs in zip(mc_settings['color_style'], mc_settings['instrument_idxs']):
-            self.send_instructions(self.byte_commands['set_color_style'], color_style.tobytes())
-            self.send_instructions(self.byte_commands['set_instrument_count'], np.array([instrument_idxs.shape[0]], dtype=np.uint8).tobytes())
-
         self.instrument_idxs = mc_settings['instrument_idxs']
+
+
+
+        for settings_tuple, command in zip((mc_settings['led_colors'], mc_settings['color_style_per_data_line'], mc_settings['instrument_count_per_data_line']),
+                                     ('set_led_colors', 'set_color_style', 'set_instrument_count')):
+            setting_values = np.hstack(settings_tuple).tobytes()
+            self.send_instructions(command, setting_values)
+            self.send_instructions('end_transmission')
+
+        self.send_instructions('setup_complete')
+
+
+
+
+
+
+
+
 
 
 def microcontroller_config_is_properly_setup() -> None or str:
@@ -121,9 +116,11 @@ def return_microcontrollers() -> [Microcontroller, ...]:
     ports = serial.tools.list_ports.comports()
     microcontrollers, currently_used_ports = [], []
     from config import microcontroller_settings
+    mc_count = 0
 
     for mc_i, settings in enumerate(microcontroller_settings):
         if settings is not None:
+            mc_count += 1
             ret = return_microcontroller_class_instance(ports, currently_used_ports, settings)
             if isinstance(ret, str):
                 print(f'Microcontroller {mc_i + 1} failed to setup. Please check mc_{mc_i + 1} settings in config.py')
@@ -132,52 +129,44 @@ def return_microcontrollers() -> [Microcontroller, ...]:
             else:
                 ret.setup(settings)
                 microcontrollers.append(ret)
-
         else:
             break
 
-    return microcontrollers
+    return microcontrollers, mc_count
 
 
-def return_microcontroller_dict(microcontrollers) -> {Microcontroller, ...}:
-    mc_dict = [{'mcs': [], 'bytes': []} for _ in range(4)]
-    bytes = [b'\x00', b'\x01', b'\x02', b'\x03']
 
-    for instrument_i in range(0, 4):
-        mc: Microcontroller
-        for mc in microcontrollers:
-            if instrument_i in mc.instrument_idxs:
-                mc_dict[instrument_i]['mcs'].append(mc)
-                mc_dict[instrument_i]['bytes'] = bytes[np.argwhere(mc.instrument_idxs == instrument_i).flatten()[0]]
-    return mc_dict
+
 
 def write_led_trigger_thread(mc_dict):
-    mc:Microcontroller
+    mc: Microcontroller
     for mc, byte in zip(mc_dict['mcs'], mc_dict['bytes']):
         mc.send_instructions(mc.byte_commands['trigger_led'], byte)
 
 
+def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, main_process_is_running: mp.Value):
+    def main():
+        led_trigger_view = np.ndarray(5, buffer=mp_shared_array._obj, dtype=np.uint8)
+        mp_child_is_ready.value = 1
+        while main_process_is_running.value:
+            if led_trigger_view[-1] == 1:
+                threads = []
+                led_triggers = np.argwhere(led_trigger_view[0:-1] == 1).flatten()
+                for mc in mcs:
+                    thread = Thread(target=mc.trigger_led, args=(led_triggers, ))
+                    thread.start()
+                    threads.append(thread)
 
+                for thread in threads:
+                    thread.join()
+                led_trigger_view[led_triggers] = 0
+                led_trigger_view[-1] = 0
 
-def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, main_process_is_running : mp.Value):
-    mcs = return_microcontrollers()
-    mc_dict = return_microcontroller_dict(mcs)
-
-    led_trigger_view = np.ndarray(5, buffer=mp_child_is_ready._obj, dtype=np.uint8)
-    mp_child_is_ready.value = 1
-    while main_process_is_running.value:
-        if led_trigger_view[-1] == 1:
-            threads = []
-            led_triggers = np.argwhere(led_trigger_view[0:-1] == 1)
-            for trigger_i in led_triggers:
-                thread = Thread(target=write_led_trigger_thread, args=(mc_dict[trigger_i]))
-                thread.start()
-                threads.append(thread)
-
-            for thread in threads:
-                thread.join()
-
-        led_trigger_view[-1] = 0
-
-
-
+    mcs, mc_count = return_microcontrollers()
+    if len(mcs) == mc_count:
+        main()
+    else:
+        print('Valid Microcontrollers did not match the settings count in config.py')
+        print('Exiting the program')
+        main_process_is_running.value = 0
+        mp_child_is_ready.value = 1
