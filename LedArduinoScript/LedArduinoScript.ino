@@ -141,7 +141,7 @@ if (DATA_PIN_4 != 0){FastLED.addLeds<WS2812B, DATA_PIN_4>(leds_4, NUM_LEDS_4);}
 void set_led_colors(){
   byte incoming_bytes[12] = {};
   binaryint_8 color;
-  int length =  Serial.readBytesUntil(end_transmission_character, incoming_bytes, 12);
+  int length =  Serial.readBytesUntil(end_transmission_character, incoming_bytes, 13);
   int count = length / 3;
   for (int instrument_i_relative = 0; instrument_i_relative < count; instrument_i_relative++){
     for (int color_i = 0; color_i < 3; color_i++){
@@ -170,7 +170,7 @@ void fill_leds(CRGB leds[], int instrument_idx, int led_count, int data_line_idx
     for (int led_i = start_i; led_i < end_i; led_i++){
       leds[led_i].b = fill_color[0];
       leds[led_i].g = fill_color[1];
-      leds[led_i].g = fill_color[2];
+      leds[led_i].r = fill_color[2];
     }
 
   }
@@ -181,7 +181,7 @@ void fill_leds(CRGB leds[], int instrument_idx, int led_count, int data_line_idx
     for (int led_i = start_i; led_i < led_count; led_i = led_i + increment){
       leds[led_i].b = fill_color[0];
       leds[led_i].g = fill_color[1];
-      leds[led_i].g = fill_color[2];
+      leds[led_i].r = fill_color[2];
     }
   }
 }

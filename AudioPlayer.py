@@ -1,10 +1,10 @@
-import os, dir, vlc, pickle, time, cv2
+import os, Dir, vlc, pickle, time, cv2
 import pickle
 
 import numpy as np
 
-import config
-from tempogram import TempogramImg
+import Config
+from Tempogram import TempogramImg
 from Microcontroller import mc_child_process
 import multiprocessing as mp
 from multiprocessing import Process, Array, Value
@@ -13,7 +13,7 @@ import Microcontroller
 
 
 def return_instrument_data(directory_count) -> (list, int, 0):
-    data_dir = f'{dir.audio_data_directory}/data_{directory_count}.pkl'
+    data_dir = f'{Dir.audio_data_directory}/data_{directory_count}.pkl'
     with open(data_dir, 'rb') as data_file:
         data = pickle.load(data_file)
     return data, directory_count + 1, 0
@@ -52,14 +52,14 @@ def end_program(main_process_running_mp, child_process):
 
 def main_loop(tempogram):
     media_player = vlc.MediaPlayer()
-    song_dirs = tuple([f'{dir.audio_files}/{audio_file_path}' for audio_file_path in os.listdir(dir.audio_files) if audio_file_path != '.gitkeep'])
+    song_dirs = tuple([f'{Dir.audio_files}/{audio_file_path}' for audio_file_path in os.listdir(Dir.audio_files) if audio_file_path != '.gitkeep'])
     song_i, song_count, directory_count, time_per_frame = 0, 0, 1, 1 / tempogram.fps
     song_frame, song_final_frame, fps_time_deficit = 0, 0, 0.0
     instrument_data_list = []
     cv2.namedWindow('frame', cv2.WINDOW_AUTOSIZE)
 
     while song_count != len(song_dirs):
-        if song_count % (config.save_file_array_count - 1) == 0:
+        if song_count % (Config.save_file_array_count - 1) == 0:
             instrument_data_list, directory_count, song_count = return_instrument_data(directory_count)
 
         instrument_data, tempogram_final_frame = instrument_data_list[song_count], instrument_data_list[song_count][-1, 0]

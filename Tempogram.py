@@ -1,8 +1,6 @@
 import numpy as np
-import cv2, os
+import cv2, os, Config
 from multiprocessing.sharedctypes import Array
-
-import personal_utils
 
 
 class TempogramImg:
@@ -12,10 +10,7 @@ class TempogramImg:
     font_scale_thickness = .75, 1
     text_color = (255, 255, 255)
     size_yx = (720, 1080)
-    tempogram_led_current_colors = np.array([[255, 0, 0],
-                                 [255, 255, 0],
-                                 [255, 0, 255],
-                                 [0, 0, 255]], dtype=np.uint8)
+    tempogram_led_current_colors = Config.instrument_colors
 
     def __init__(self):
         self.frame = np.zeros((self.size_yx[0], self.size_yx[1], 3), dtype=np.uint8)

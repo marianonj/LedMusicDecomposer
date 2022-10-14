@@ -1,9 +1,9 @@
-import subprocess, os, librosa, dir, shlex, pickle, stat, shutil
+import subprocess, os, librosa, Dir, shlex, pickle, stat, shutil
 from multiprocessing import Process
 from multiprocessing import sharedctypes
 import numpy as np
-from config import save_file_array_count
-from tempogram import TempogramImg
+from Config import save_file_array_count
+from Tempogram import TempogramImg
 
 
 def instrument_decomposition_subprocess(audio_path, mp_array, second_per_frame, fps_offset):
@@ -48,7 +48,7 @@ def save_instrument_song_data(audio_folder_paths, tempogram_fps, fps_offset):
         print(f'Finished analyzing song {i + 1} of {song_lengths}')
 
         if tempogram_data_count == save_file_array_count or tempogram_data_count == song_lengths:
-            data_dir = f'{dir.audio_data_directory}/data_{tempogram_str_count}.pkl'
+            data_dir = f'{Dir.audio_data_directory}/data_{tempogram_str_count}.pkl'
             with open(data_dir, 'wb') as save_file:
                 pickle.dump(tempogram_final_data, save_file, pickle.HIGHEST_PROTOCOL)
 
@@ -60,7 +60,7 @@ def save_instrument_song_data(audio_folder_paths, tempogram_fps, fps_offset):
 
 def spleeter_decompose(audio_file_paths):
     print('Starting spleeter decomposition')
-    spleeter_subcommand = shlex.split(f'spleeter separate -p spleeter:4stems -o {dir.temp_audio_directory}')
+    spleeter_subcommand = shlex.split(f'spleeter separate -p spleeter:4stems -o {Dir.temp_audio_directory}')
     for audio_path in audio_file_paths:
         spleeter_subcommand.append(audio_path)
 
@@ -81,9 +81,9 @@ def remove_temp_files(temp_audio_paths):
 
 def main():
     tempogram = TempogramImg()
-    audio_file_names = os.listdir(dir.audio_files)
-    audio_file_paths = [f'{dir.audio_files}/{audio_path}' for audio_path in os.listdir(dir.audio_files) if audio_path != '.gitkeep']
-    temp_audio_paths = [f'{dir.temp_audio_directory}/{audio_file_name[0:-4]}' for audio_file_name in audio_file_names if audio_file_name != '.gitkeep']
+    audio_file_names = os.listdir(Dir.audio_files)
+    audio_file_paths = [f'{Dir.audio_files}/{audio_path}' for audio_path in os.listdir(Dir.audio_files) if audio_path != '.gitkeep']
+    temp_audio_paths = [f'{Dir.temp_audio_directory}/{audio_file_name[0:-4]}' for audio_file_name in audio_file_names if audio_file_name != '.gitkeep']
 
     spleeter_decompose(audio_file_paths)
     save_instrument_song_data(temp_audio_paths, tempogram.fps, tempogram.tempogram_halfway_idx)

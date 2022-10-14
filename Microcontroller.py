@@ -4,12 +4,14 @@ from struct import unpack
 import numpy as np
 import multiprocessing as mp
 from threading import Thread
-from config import microcontroller_settings
+
+import Config
+from Config import microcontroller_settings
 from contextlib import suppress
 
 
 class Microcontroller:
-    time_out, byte_instruction_wait = 2, .5
+    time_out, post_instruction_wait_time = 2, .5
     microcontroller_count = 4
     baud_rate = 115200
     # Top_Left,
@@ -53,32 +55,19 @@ class Microcontroller:
         if arg_bytes is not None:
             self.mc.write(arg_bytes)
         if wait:
-            time.sleep(self.byte_instruction_wait)
+            time.sleep(self.post_instruction_wait_time)
 
     def setup(self, mc_settings):
         self.instrument_idxs = mc_settings['instrument_idxs']
 
-
-
-        for settings_tuple, command in zip((mc_settings['led_colors'], mc_settings['color_style_per_data_line'], mc_settings['instrument_count_per_data_line']),
-                                     ('set_led_colors', 'set_color_style', 'set_instrument_count')):
+        for settings_tuple, command in zip((mc_settings['color_style_per_data_line'], mc_settings['instrument_count_per_data_line']), ('set_color_style', 'set_instrument_count')):
             setting_values = np.hstack(settings_tuple).tobytes()
             self.send_instructions(command, setting_values)
             self.send_instructions('end_transmission')
 
+        self.send_instructions('set_led_colors', Config.instrument_colors.tobytes())
+        self.send_instructions('end_transmission')
         self.send_instructions('setup_complete')
-
-
-
-
-
-
-
-
-
-
-def microcontroller_config_is_properly_setup() -> None or str:
-    error_msg = None
 
 
 def return_microcontroller_class_instance(ports: list, occupied_ports: list, microcontroller_setting_dict: dict) -> Microcontroller or str:
@@ -109,13 +98,13 @@ def return_microcontroller_class_instance(ports: list, occupied_ports: list, mic
         except serial.SerialException:
             return f'{com_port} is already in use by another program'
 
-    return f'The id returned by the microcontrollers did not match the id in the config.py.\n Ensure the arduino script id matches the mc dictionary id'
+    return f'The id returned by the microcontrollers did not match the id in the Config.py.\n Ensure the arduino script id matches the mc dictionary id'
 
 
 def return_microcontrollers() -> [Microcontroller, ...]:
     ports = serial.tools.list_ports.comports()
     microcontrollers, currently_used_ports = [], []
-    from config import microcontroller_settings
+    from Config import microcontroller_settings
     mc_count = 0
 
     for mc_i, settings in enumerate(microcontroller_settings):
@@ -123,7 +112,7 @@ def return_microcontrollers() -> [Microcontroller, ...]:
             mc_count += 1
             ret = return_microcontroller_class_instance(ports, currently_used_ports, settings)
             if isinstance(ret, str):
-                print(f'Microcontroller {mc_i + 1} failed to setup. Please check mc_{mc_i + 1} settings in config.py')
+                print(f'Microcontroller {mc_i + 1} failed to setup. Please check mc_{mc_i + 1} settings in Config.py')
                 print(f'Error message: {ret}')
                 break
             else:
@@ -133,8 +122,6 @@ def return_microcontrollers() -> [Microcontroller, ...]:
             break
 
     return microcontrollers, mc_count
-
-
 
 
 
@@ -166,7 +153,7 @@ def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, mai
     if len(mcs) == mc_count:
         main()
     else:
-        print('Valid Microcontrollers did not match the settings count in config.py')
+        print('Valid Microcontrollers did not match the settings count in Config.py')
         print('Exiting the program')
         main_process_is_running.value = 0
         mp_child_is_ready.value = 1
