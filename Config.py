@@ -30,8 +30,8 @@ instrument_colors = np.array([[255, 255, 0],
 
 mc_1 = {'name': 'Silicon Labs',
         'id': 0,
-        'instrument_idxs': (np.array([0, 1, 2, 3], dtype=np.uint8), ),
-        'color_style_per_data_line': (color_styles['dispersed'], ),
+        'instrument_idxs': np.array([0, 1, 2, 3], dtype=np.uint8),
+        'color_style_per_data_line': (color_styles['segmented'], ),
         'instrument_count_per_data_line': (np.array([4], dtype=np.uint8), )
         }
 

@@ -19,12 +19,12 @@ class Microcontroller:
     byte_order: str = sys.byteorder
     byte_commands = {
         'query_id': b'\x00',
-        'trigger_led': b'\x01',
         'set_color_style': b'\x03',
         'set_instrument_count': b'\x04',
         'set_led_colors': b'\x05',
         'setup_complete': b'\x06',
-        'end_transmission': b'\x07'
+        'end_transmission': b'\x07',
+        'trigger_led': b'\x08'
     }
 
     def __init__(self, com_port):
@@ -39,8 +39,7 @@ class Microcontroller:
         instrument_relative_idxs = np.argwhere(np.isin(self.instrument_idxs, trigger_idxs, assume_unique=True)).astype(np.uint8).flatten()
 
         if instrument_relative_idxs.shape[0] != 0:
-            self.send_instructions(self.trigger_led.__name__, instrument_relative_idxs.tobytes(), wait=False)
-            self.send_instructions('end_transmission', wait=False)
+            self.send_instructions(self.trigger_led.__name__, instrument_relative_idxs.tobytes() + self.byte_commands['end_transmission'], wait=False)
 
     def query_id(self) -> int:
         mc_id = None
@@ -64,9 +63,8 @@ class Microcontroller:
             setting_values = np.hstack(settings_tuple).tobytes()
             self.send_instructions(command, setting_values)
             self.send_instructions('end_transmission')
-
-        self.send_instructions('set_led_colors', Config.instrument_colors.tobytes())
-        self.send_instructions('end_transmission')
+        t = Config.instrument_colors.tobytes(order='C')
+        self.send_instructions('set_led_colors', Config.instrument_colors.tobytes(order='C') + self.byte_commands['end_transmission'])
         self.send_instructions('setup_complete')
 
 

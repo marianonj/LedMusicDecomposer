@@ -78,7 +78,6 @@ def remove_temp_files(temp_audio_paths):
     for temp_audio_path in temp_audio_paths:
         shutil.rmtree(temp_audio_path, onerror=remove_permission_error)
 
-
 def main():
     tempogram = TempogramImg()
     audio_file_names = os.listdir(Dir.audio_files)

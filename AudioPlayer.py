@@ -2,13 +2,11 @@ import os, Dir, vlc, pickle, time, cv2
 import pickle
 
 import numpy as np
-
 import Config
 from Tempogram import TempogramImg
 from Microcontroller import mc_child_process
 import multiprocessing as mp
 from multiprocessing import Process, Array, Value
-
 import Microcontroller
 
 
@@ -57,6 +55,7 @@ def main_loop(tempogram):
     song_frame, song_final_frame, fps_time_deficit = 0, 0, 0.0
     instrument_data_list = []
     cv2.namedWindow('frame', cv2.WINDOW_AUTOSIZE)
+    print('Press q to exit at any time')
 
     while song_count != len(song_dirs):
         if song_count % (Config.save_file_array_count - 1) == 0:
