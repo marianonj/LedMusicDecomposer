@@ -1,14 +1,7 @@
-import os, Dir, vlc, pickle, time, cv2
-import pickle
-
-import numpy as np
-import Config
+import os, Dir, vlc, pickle, time, cv2, Config
 from Tempogram import TempogramImg
 from Microcontroller import mc_child_process
 import multiprocessing as mp
-from Errors import *
-from multiprocessing import Process, Array, Value
-import Microcontroller
 
 
 def return_instrument_data(directory_count) -> (list, int, 0):
@@ -29,7 +22,6 @@ def apply_synchronization_delay(desired_end_time, end_time, fps_time_deficit) ->
                 while time.perf_counter() <= desired_end_time - fps_time_deficit:
                     pass
                 fps_time_deficit = 0
-                print(f'time deficit is {fps_time_deficit}')
         else:
             while time.perf_counter() - desired_end_time <= 0:
                 pass
@@ -55,7 +47,7 @@ def main_loop(tempogram):
     song_frame, song_final_frame, fps_time_deficit = 0, 0, 0.0
     instrument_data_list = []
     cv2.namedWindow('frame', cv2.WINDOW_AUTOSIZE)
-    print('Press q to exit at any time')
+    print('Press q to exit at any time.')
 
     while song_count != len(song_dirs):
         if song_count % (Config.save_file_array_count - 1) == 0:
@@ -94,17 +86,12 @@ def setup(led_shared_memory) -> (mp.sharedctypes.Value, mp.Process):
 def main():
     tempogram = TempogramImg()
     main_process_running_mp, child_process = setup(tempogram.led_shared_memory)
+
     #If the microcontroller setup fails, it will print an error message and set the main_process_running to 0, exiting the program
     if main_process_running_mp.value != 0:
         main_loop(tempogram)
         end(main_process_running_mp, child_process)
 
-
-
-    if main_process_running_mp.value != 0:
-        main_loop(tempogram)
-
-    end(main_process_running_mp, child_process)
 
 
 if __name__ == '__main__':

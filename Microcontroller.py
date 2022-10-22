@@ -33,19 +33,18 @@ class Microcontroller:
     }
     all_configs = Config.microcontroller_settings
     instrument_colors = Config.instrument_colors
+
     def __init__(self, com_port, name):
         self.com_port, self.name = com_port, name
         try:
             self.mc = serial.Serial(self.com_port, Microcontroller.baud_rate, timeout=Microcontroller.time_out)
         except serial.SerialException:
-            raise(PortAccessDenied(f'{self.com_port} denied access. Check to see if it in use by another program.'))
+            raise (PortAccessDenied(f'{self.com_port} denied access. Check to see if it in use by another program.'))
 
-
-        #Set in Setup - Config Check
+        # Set in Setup - Config Check
         self.mc_settings = self.data_line_count = self.instrument_idxs = None, None, None
         time.sleep(2)
         self.setup()
-
 
         # self.top_offset, self.bottom_offset = return_calibration_offsets()
 
@@ -110,28 +109,22 @@ class Microcontroller:
                 if less_than_minimum.shape[0] != 0:
                     raise LedCountLessThanMinimum(f'MC_{mc_id} has led count(s) that are less than the minimum of {self.led_minimum_count} at led_idx(s) {non_zeros_idxs[less_than_minimum]}.')
 
-
-
     def setup(self):
         self.arduino_config_check()
         self.set_instrument_idxs()
         instrument_counts = np.array([len(instruments) for instruments in self.mc_settings['instruments_per_data_line']], dtype=np.uint8)
-        color_style_per_line = np.array([Config.ColorStyles[fill_style_str].value for fill_style_str in self.mc_settings['color_style_per_data_line']], dtype=np.uint8)
+        color_style_per_line = np.array([Config.fill_styles[fill_style_str] for fill_style_str in self.mc_settings['color_style_per_data_line']], dtype=np.uint8)
 
         for instruments in self.mc_settings['instruments_per_data_line']:
             self.send_instructions('set_instruments', np.array(instruments, dtype=np.uint8).tobytes() + self.byte_commands['end_transmission'])
 
-        for settings_value, command in zip((instrument_counts, self.instrument_colors, color_style_per_line), ('set_instrument_count', 'set_led_colors', 'set_color_style', )):
+        for settings_value, command in zip((instrument_counts, self.instrument_colors, color_style_per_line), ('set_instrument_count', 'set_led_colors', 'set_color_style',)):
             self.send_instructions(command, settings_value.tobytes() + self.byte_commands['end_transmission'])
-
-            print('b')
         self.send_instructions('setup_complete')
         time.sleep(.5)
 
 
 def return_microcontroller_class_instance(ports: list, occupied_ports: list, microcontroller_setting_dict: dict) -> Microcontroller or str:
-    # If the fields in the setting_dict are all valid, and the microcontroller is found within the valid usb ports, return the microcontroller
-    # Otherwise return an error message
     com_port, device_name, mc_name_match = None, None, False
     for port in ports:
         port: serial.tools.list_ports_common.ListPortInfo
@@ -155,8 +148,7 @@ def return_microcontroller_class_instance(ports: list, occupied_ports: list, mic
             raise
 
 
-
-def return_microcontrollers() -> [Microcontroller, ...]:
+def return_microcontrollers() -> ([Microcontroller, ...], int):
     ports = serial.tools.list_ports.comports()
     microcontrollers, currently_used_ports = [], []
     from Config import microcontroller_settings
@@ -165,18 +157,9 @@ def return_microcontrollers() -> [Microcontroller, ...]:
     for mc_i, settings in enumerate(microcontroller_settings):
         if settings is not None:
             mc_count += 1
-            ret = return_microcontroller_class_instance(ports, currently_used_ports, settings)
-            if isinstance(ret, str):
-                print(f'Microcontroller {mc_i + 1} failed to setup. Please check mc_{mc_i + 1} settings in Config.py')
-                print(f'Error message: {ret}')
-                break
-            else:
-                microcontrollers.append(ret)
-        else:
-            break
+            microcontrollers.append(return_microcontroller_class_instance(ports, currently_used_ports, settings))
 
     return microcontrollers, mc_count
-
 
 
 def write_led_trigger_thread(mc_dict):
@@ -194,7 +177,7 @@ def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, mai
                 threads = []
                 led_triggers = np.argwhere(led_trigger_view[0:-1] == 1).flatten()
                 for mc in mcs:
-                    thread = Thread(target=mc.trigger_led, args=(led_triggers, ))
+                    thread = Thread(target=mc.trigger_led, args=(led_triggers,))
                     thread.start()
                     threads.append(thread)
 

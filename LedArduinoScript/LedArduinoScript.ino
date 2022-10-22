@@ -1,27 +1,42 @@
 #include <FastLED.h>
+// Data pin the strip is connected to
 #define DATA_PIN_1 2
+
+// Number of LEDS, minimum value of 4
 #define NUM_LEDS_1 10
-CRGB leds_1[NUM_LEDS_1];
 
-// Adjust below if more than one data pin is being used
+// FASTLED strip type, supported types: NEOPIXEL, SM16703, TM1829, TM1812, TM1809, TM1804, TM1803, UCS1903, UCS1903B, UCS1904, 
+// UCS2903, WS2812, WS2852, WS2812B, GS1903, SK6812, SK6822, APA106, PL9823, SK6822
+#define LED_STRIP_TYPE_1 WS2812B
 
+// Color order depending on your specific strip. Check your datasheet or just try random combinations until you find the right one :). 
+#define LED_COLOR_ORDER_1 GRB
+
+
+// Adjust below if more than one data line is being used
 #define DATA_PIN_2 0
 #define NUM_LEDS_2 0
-CRGB leds_2[NUM_LEDS_2];
+#define LED_STRIP_TYPE_2 null
+#define LED_COLOR_ORDER_2 GRB
+
 #define DATA_PIN_3 0
 #define NUM_LEDS_3 0
-CRGB leds_3[NUM_LEDS_3];
+#define LED_STRIP_TYPE_3 null
+#define LED_COLOR_ORDER_3 GRB
+
 #define DATA_PIN_4 0
 #define NUM_LEDS_4 0
-CRGB leds_4[NUM_LEDS_4];
+#define LED_STRIP_TYPE_4 null
+#define LED_COLOR_ORDER_4 GRB
+
+CRGB leds_1[NUM_LEDS_1],  leds_2[NUM_LEDS_2], leds_3[NUM_LEDS_3], leds_4[NUM_LEDS_4];
+uint8_t mc_id = 0, data_line_count = 0;
 
 struct color {
   int r;
   int g;
   int b;
 };
-
-
 
 typedef union {
   uint8_t value;
@@ -33,25 +48,15 @@ typedef union {
   byte binary[4];
 } binaryintarr_8;
 
-
-typedef union {
-  int value;
-  byte binary[2];
-} binaryint;
-
 typedef union {
   uint16_t value[4];
   byte binary[8];
 } binaryintarr_16;
 
 uint16_t led_start_stop_idxs[4][8] = {};
-int data_pins_and_lengths[4][2] = { { DATA_PIN_1, NUM_LEDS_1 }, { DATA_PIN_2, NUM_LEDS_2 }, { DATA_PIN_3, NUM_LEDS_3 }, { DATA_PIN_4, NUM_LEDS_4 } };
-uint8_t instrument_counts[4] = {}, data_line_instruments[4][4] = {{4, 4, 4, 4}, {4, 4, 4, 4}, {4, 4, 4, 4}, {4, 4, 4, 4}}, leds_on[4] = {0, 0, 0, 0}, led_fill_type[4] = {};
-int instrument_colors_bgr[4][3] = {};
-
+int data_pins_and_lengths[4][2] = { { DATA_PIN_1, NUM_LEDS_1 }, { DATA_PIN_2, NUM_LEDS_2 }, { DATA_PIN_3, NUM_LEDS_3 }, { DATA_PIN_4, NUM_LEDS_4 }}, instrument_colors_bgr[4][3];
+uint8_t instrument_counts[4], data_line_instruments[4][4] = {{4, 4, 4, 4}, {4, 4, 4, 4}, {4, 4, 4, 4}, {4, 4, 4, 4}}, leds_on[4] = {0, 0, 0, 0}, led_fill_type[4];
 char end_transmission_character = 7, led_trigger_char = 8;
-uint8_t mc_id = 0, data_line_count = 0;
-
 
 void set_instrument_idxs() {
   for (int data_line_i = 0; data_line_i < data_line_count; data_line_i++) {
@@ -131,10 +136,10 @@ void set_data_arrays(uint8_t data_array[]) {
 
 
 void set_led_arrays() {
-  FastLED.addLeds<WS2812B, DATA_PIN_1, GRB>(leds_1, NUM_LEDS_1);
-  if (DATA_PIN_2 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_2, GRB>(leds_2, NUM_LEDS_2); }
-  if (DATA_PIN_3 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_3, GRB>(leds_3, NUM_LEDS_3); }
-  if (DATA_PIN_4 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_4, GRB>(leds_4, NUM_LEDS_4); }
+  FastLED.addLeds<LED_STRIP_TYPE_1, DATA_PIN_1, LED_COLOR_ORDER_1>(leds_1, NUM_LEDS_1);
+  if (DATA_PIN_2 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_2, LED_COLOR_ORDER_2>(leds_2, NUM_LEDS_2); }
+  if (DATA_PIN_3 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_3, LED_COLOR_ORDER_3>(leds_3, NUM_LEDS_3); }
+  if (DATA_PIN_4 != 0) { FastLED.addLeds<WS2812B, DATA_PIN_4, LED_COLOR_ORDER_4>(leds_4, NUM_LEDS_4); }
 }
 
 void set_led_colors() {

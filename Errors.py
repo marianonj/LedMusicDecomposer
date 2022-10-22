@@ -1,5 +1,3 @@
-import Dir
-
 class Error(Exception):
     pass
 
