@@ -1,22 +1,18 @@
-import struct
-import time, serial, serial.tools.list_ports, serial.tools.list_ports_common, sys
+import time, serial, sys, warnings, Config
+import serial.tools.list_ports, serial.tools.list_ports_common
 from struct import unpack
+from struct import error as struct_error
 import numpy as np
 import multiprocessing as mp
 from threading import Thread
-import warnings
-import Config
-from Config import microcontroller_settings
 from contextlib import suppress
 from Errors import *
-
 
 class Microcontroller:
     led_minimum_count = 4
     time_out, post_instruction_wait_time = 2, .5
     baud_rate = 115200
     already_used_ids = []
-    # Top_Left,
     lc_pixel_locations = None
     byte_order: str = sys.byteorder
     all_instrument_idxs = np.array([Config.bass, Config.drum, Config.voice, Config.other], dtype=np.uint8)
@@ -56,7 +52,7 @@ class Microcontroller:
     def query_arduino(self) -> (int, list):
         mc_id, led_counts = None, []
         self.send_instructions('query_id')
-        with suppress(struct.error):
+        with suppress(struct_error):
             mc_id = unpack('b', self.mc.read(1))[0]
 
         for _ in range(len(self.mc_settings['color_style_per_data_line'])):
@@ -82,7 +78,7 @@ class Microcontroller:
 
     def arduino_config_check(self):
         self.send_instructions('query_id')
-        with suppress(struct.error):
+        with suppress(struct_error):
             mc_id = unpack('b', self.mc.read(1))[0]
             for mc_setting in self.all_configs:
                 if mc_setting['id'] == mc_id and mc_setting['name'] == self.name:
@@ -96,7 +92,7 @@ class Microcontroller:
         self.instrument_idxs = np.array([self.mc_settings['instruments_per_data_line']], dtype=np.uint8) if len(self.mc_settings['instruments_per_data_line']) == 1 else np.hstack((self.mc_settings['instruments_per_data_line']))
         self.data_line_count = len(self.mc_settings['instruments_per_data_line'])
 
-        with suppress(struct.error):
+        with suppress(struct_error):
             self.send_instructions('query_num_leds')
             led_counts = np.frombuffer(self.mc.read(8), dtype=np.uint16)
             non_zeros_idxs = np.argwhere(led_counts).flatten()

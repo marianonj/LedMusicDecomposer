@@ -92,7 +92,5 @@ def main():
         main_loop(tempogram)
         end(main_process_running_mp, child_process)
 
-
-
 if __name__ == '__main__':
     main()

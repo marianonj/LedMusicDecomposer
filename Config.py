@@ -1,9 +1,7 @@
 import numpy as np
-import sys
-from enum import Enum
 from Errors import *
-
-# sys.tracebacklimit = 0
+import sys
+sys.tracebacklimit = 0
 save_file_array_count = 10
 
 '''MC Config Formatting
