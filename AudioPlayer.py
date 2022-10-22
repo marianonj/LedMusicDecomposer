@@ -6,6 +6,7 @@ import Config
 from Tempogram import TempogramImg
 from Microcontroller import mc_child_process
 import multiprocessing as mp
+from Errors import *
 from multiprocessing import Process, Array, Value
 import Microcontroller
 
@@ -15,7 +16,6 @@ def return_instrument_data(directory_count) -> (list, int, 0):
     with open(data_dir, 'rb') as data_file:
         data = pickle.load(data_file)
     return data, directory_count + 1, 0
-
 
 def apply_synchronization_delay(desired_end_time, end_time, fps_time_deficit) -> float:
     if end_time > desired_end_time:
@@ -43,7 +43,7 @@ def start_and_return_led_child(led_data_mp, led_child_ready_mp, main_process_run
         pass
     return child
 
-def end_program(main_process_running_mp, child_process):
+def end(main_process_running_mp, child_process):
     cv2.destroyAllWindows()
     main_process_running_mp.value = 0
     child_process.join()
@@ -83,16 +83,28 @@ def main_loop(tempogram):
         tempogram.tempogram_current_hit_idx, tempogram.tempogram_future_hit_idx = 0, 0
 
 
+def setup(led_shared_memory) -> (mp.sharedctypes.Value, mp.Process):
+    Config.config_check()
+    led_child_ready_mp, main_process_running_mp = mp.Value('B', 0), mp.Value('B', 1)
+    child_process = start_and_return_led_child(led_shared_memory, led_child_ready_mp, main_process_running_mp)
+    while not led_child_ready_mp.value:
+        pass
+    return main_process_running_mp, child_process
+
 def main():
     tempogram = TempogramImg()
-    led_child_ready_mp, main_process_running_mp = mp.Value('B', 0), mp.Value('B', 1)
-    child_process = start_and_return_led_child(tempogram.led_shared_memory, led_child_ready_mp, main_process_running_mp)
-
+    main_process_running_mp, child_process = setup(tempogram.led_shared_memory)
     #If the microcontroller setup fails, it will print an error message and set the main_process_running to 0, exiting the program
     if main_process_running_mp.value != 0:
         main_loop(tempogram)
+        end(main_process_running_mp, child_process)
 
-    end_program(main_process_running_mp, child_process)
+
+
+    if main_process_running_mp.value != 0:
+        main_loop(tempogram)
+
+    end(main_process_running_mp, child_process)
 
 
 if __name__ == '__main__':
