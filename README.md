@@ -1,6 +1,6 @@
 # LedMusicDecomposer
 A python and c++ program that uses FASTLED, Spleeter, and Librosa to decompose songs and send instrument timings to LED strips
-https://user-images.githubusercontent.com/83613942/197366009-708d8ef7-c574-4348-a960-b75f6436b11c.mp4
+<video src="https://user-images.githubusercontent.com/83613942/197366009-708d8ef7-c574-4348-a960-b75f6436b11c.mp4"></video>
 
 How to run:
   1. Clone repository and install requirements using cmd pip install -r requirements.txt
