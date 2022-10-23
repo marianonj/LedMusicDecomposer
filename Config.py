@@ -32,7 +32,7 @@ bass, drum, voice, other = 0, 1, 2, 3
 mc_config_0 = {'name': 'Silicon Labs',
                'id': 0,
                'instruments_per_data_line': ((bass, drum, voice, other),),
-               'color_style_per_data_line': ('segmented',)
+               'color_style_per_data_line': ('dispersed',)
                }
 mc_config_1 = None
 mc_config_2 = None

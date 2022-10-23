@@ -46,7 +46,7 @@ def main_loop(tempogram):
     song_i, song_count, directory_count, time_per_frame = 0, 0, 1, 1 / tempogram.fps
     song_frame, song_final_frame, fps_time_deficit = 0, 0, 0.0
     instrument_data_list = []
-    cv2.namedWindow('frame', cv2.WINDOW_AUTOSIZE)
+    cv2.namedWindow('frame')
     print('Press q to exit at any time.')
 
     while song_count != len(song_dirs):
