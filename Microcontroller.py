@@ -136,12 +136,10 @@ def return_microcontroller_class_instance(ports: list, occupied_ports: list, mic
         if mc_name_match:
             raise MicrocontrollerNotFound(f'Ports with device name {microcontroller_setting_dict["name"]} are already designated to a previous arduino device')
         else:
-            return MicrocontrollerNotFound(f'No microcontroller matching the name {microcontroller_setting_dict["name"]} was found')
+            raise MicrocontrollerNotFound(f'No microcontroller matching the name {microcontroller_setting_dict["name"]} was found')
     else:
-        try:
-            return Microcontroller(com_port, device_name)
-        except Exception:
-            raise
+        return Microcontroller(com_port, device_name)
+
 
 
 def return_microcontrollers() -> ([Microcontroller, ...], int):
@@ -164,11 +162,11 @@ def write_led_trigger_thread(mc_dict):
         mc.send_instructions(mc.byte_commands['trigger_led'], byte)
 
 
-def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, main_process_is_running: mp.Value):
+def mc_child_process(mp_shared_array: mp.Array, child_process_ready: mp.Value, main_process_running: mp.Value):
     def main():
         led_trigger_view = np.ndarray(5, buffer=mp_shared_array._obj, dtype=np.uint8)
-        mp_child_is_ready.value = 1
-        while main_process_is_running.value:
+        child_process_ready.value = 1
+        while main_process_running.value:
             if led_trigger_view[-1] == 1:
                 threads = []
                 led_triggers = np.argwhere(led_trigger_view[0:-1] == 1).flatten()
@@ -182,10 +180,12 @@ def mc_child_process(mp_shared_array: mp.Array, mp_child_is_ready: mp.Value, mai
                 led_trigger_view[led_triggers] = 0
                 led_trigger_view[-1] = 0
 
-    mcs, mc_count = return_microcontrollers()
-    if len(mcs) == mc_count:
-        main()
-    else:
-        print('Valid Microcontrollers did not match the settings count in Config.py')
-        print('Exiting the program')
-        mp_child_is_ready.value, main_process_is_running.value = 1, 0
+    try:
+        mcs, mc_count = return_microcontrollers()
+    except Exception:
+        raise
+    finally:
+        child_process_ready.value = 1
+        main_process_running.value = 0
+    main()
+
